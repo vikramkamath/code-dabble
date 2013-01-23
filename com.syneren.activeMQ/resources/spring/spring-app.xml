@@ -14,41 +14,41 @@
            http://activemq.apache.org/schema/core/activemq-core.xsd">
       <context:component-scan base-package="com.syneren.activeMQ.spring.app" />
       <context:annotation-config/>
-       
-       <!-- Creating embedded ActiveMQ broker -->
-      <!--  <amq:broker useJmx="false"  xmlns="http://activemq.apache.org/schema/core" persistent="false">
-	    <transportConnectors>
-	      <transportConnector uri="nio://localhost:61616?wireFormat.maxFrameSize=1048576" />
-	    </transportConnectors>        
-	  </amq:broker> -->
-       
-       <bean id="activeMQConnectionFactory" 
-       		class="org.apache.activemq.ActiveMQConnectionFactory">
-       </bean>
-       <bean id="activeMQConnection" factory-bean="activeMQConnectionFactory"
-       factory-method="createConnection">       
-       </bean>
-       
-       	<bean id="connectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory">
-	        <property name="brokerURL">
-	            <value>tcp://localhost:61616</value>
-	        </property>
-	    </bean>
-       
+      <!--  Create an embedded ActiveMQ Broker-->
+		<bean id="connectionFactory"  class="org.springframework.jms.connection.CachingConnectionFactory">
+		  <property name="targetConnectionFactory">
+		    <bean class="org.apache.activemq.ActiveMQConnectionFactory">
+		       <property name="brokerURL" value="vm://embedded?broker.persistent=false"/>
+		    </bean>
+		  </property>
+		</bean>
+		
+		<!-- JMS Configuration
+		                                                                               [Spring Consumer 1]
+		                      JMS Template          Poll                             /
+		[Spring Producer] ==============>[Queue]<=====[JMS Listener Container]>>>>{ - 
+																					 \ [Spring COnsumer 2]			
+		 -->
+     
+       <!-- define Queues/Topics-->
        	<bean id="destination" class="org.apache.activemq.command.ActiveMQQueue">
 	        <constructor-arg value="SPRINGQUEUE"/>
 	    </bean>
 	    
+	    <!-- Use JMS Template to get rid of connection setup /tear-down boiler-plate code -->
 	    <bean id="jmsTemplate" class="org.springframework.jms.core.JmsTemplate">
 	        <property name="connectionFactory" ref="connectionFactory" />
 	        <property name="defaultDestination" ref="destination" />
 	    </bean>
 	    
-	    <!--   -->
+	    <!-- Define Producer and Consumer beans to send and receive Messages  -->
 	    <bean id="springProducer" class="com.syneren.activeMQ.spring.app.SpringProducer">
 	    </bean>
 	    <bean id="springConsumer" class="com.syneren.activeMQ.spring.app.SpringConsumer">
 	    </bean>
+	    
+	    <!-- Define JMS Listener that listens to any Queue/Topic. On receiving new message, this will handover the messages
+	     configured listeners -->
 	    <jms:listener-container  connection-factory="connectionFactory">
 		     <jms:listener destination="SPRINGQUEUE" ref="springConsumer"/>
 		</jms:listener-container>
